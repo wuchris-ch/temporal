@@ -6,6 +6,9 @@ import (
 	"go.temporal.io/server/common/metrics"
 )
 
+// WorkflowHeartbeatNotificationUpdateAdmittedInputType identifies an Update waiting in the Registry.
+const WorkflowHeartbeatNotificationUpdateAdmittedInputType = "UPDATE_ADMITTED"
+
 // IsWorkflowHeartbeatNotificationInputType reports whether an event type is eligible for a Workflow Task heartbeat notification.
 // Buffering alone does not make an event eligible; for example, ActivityTaskStarted records progress but does not normally require a new Workflow Task.
 func IsWorkflowHeartbeatNotificationInputType(eventType enumspb.EventType) bool {
@@ -66,9 +69,7 @@ func (c *ContextImpl) emitWorkflowHeartbeatNotificationBufferedInputMetrics(
 		}
 		return bufferedInputCount > len(eventTypes)
 	})
-	// TODO: Account for pending Updates. Only events are counted for now because UpdateRegistry is not a
-	// read-only method, so the first-input estimate is slightly exaggerated depending on the namespace's Update traffic.
-	firstBufferedInput := !hadBufferedInput
+	firstBufferedInput := !hadBufferedInput && !c.hasPendingUpdateForWorkflowHeartbeatNotification()
 	handler := c.metricsHandler.WithTags(metrics.NamespaceTag(c.MutableState.GetNamespaceEntry().Name().String()))
 
 	for _, eventType := range eventTypes {
@@ -79,4 +80,17 @@ func (c *ContextImpl) emitWorkflowHeartbeatNotificationBufferedInputMetrics(
 			firstBufferedInput = false
 		}
 	}
+}
+
+// hasPendingUpdateForWorkflowHeartbeatNotification reads pending Updates without creating or clearing the Registry.
+func (c *ContextImpl) hasPendingUpdateForWorkflowHeartbeatNotification() bool {
+	if c.updateRegistry != nil && c.updateRegistry.FailoverVersion() == c.MutableState.GetCurrentVersion() {
+		return c.updateRegistry.HasOutgoingMessages(false)
+	}
+	for _, info := range c.MutableState.GetExecutionInfo().GetUpdateInfos() {
+		if info.GetAdmission() != nil {
+			return true
+		}
+	}
+	return false
 }
