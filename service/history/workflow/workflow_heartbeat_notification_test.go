@@ -8,6 +8,7 @@ import (
 	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/server/common/metrics"
 	"go.temporal.io/server/common/metrics/metricstest"
+	"go.temporal.io/server/service/history/configs"
 	"go.temporal.io/server/service/history/historybuilder"
 	historyi "go.temporal.io/server/service/history/interfaces"
 	"go.temporal.io/server/service/history/tests"
@@ -58,7 +59,7 @@ func TestIsWorkflowHeartbeatNotificationInputType(t *testing.T) {
 	}
 }
 
-func TestEmitWorkflowHeartbeatNotificationBufferedInputMetrics(t *testing.T) {
+func TestHandleBufferedInputsForWorkflowHeartbeatNotification(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name          string
@@ -151,7 +152,13 @@ func TestEmitWorkflowHeartbeatNotificationBufferedInputMetrics(t *testing.T) {
 			for _, eventType := range tc.newEvents {
 				newEvents = append(newEvents, &historypb.HistoryEvent{EventType: eventType})
 			}
-			workflowContext.emitWorkflowHeartbeatNotificationBufferedInputMetrics(newEvents)
+			shard := historyi.NewMockShardContext(controller)
+			if tc.firstType != "" {
+				shard.EXPECT().GetConfig().Return(&configs.Config{
+					EnableWorkflowHeartbeatNotification: func(string) bool { return false },
+				})
+			}
+			workflowContext.handleBufferedInputsForWorkflowHeartbeatNotification(shard, newEvents)
 
 			buffered := capture.SnapshotMetric(metrics.WorkflowHeartbeatNotificationBufferedInput.Name())
 			require.Len(t, buffered, len(tc.bufferedTypes))
