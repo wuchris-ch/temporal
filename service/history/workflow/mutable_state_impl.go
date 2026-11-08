@@ -207,6 +207,8 @@ type (
 		// The flag will be unset whenever workflow task successfully completed, timedout or failed
 		// due to cause other than UnhandledCommand.
 		workflowCloseAttempted bool
+		// TODO(whn): decide where this lives; see WorkflowTaskInfo.WorkerControlTaskQueue.
+		workflowTaskWorkerControlTaskQueue string
 		// A flag indicating if transition history feature is enabled for the current transaction.
 		// We need a consistent view of if transition history is enabled within one transaction in case
 		// dynamic configuration value changes in the middle of a transaction
@@ -3738,6 +3740,14 @@ func (ms *MutableStateImpl) ApplyWorkflowTaskScheduledEvent(
 	workflowTaskType enumsspb.WorkflowTaskType,
 ) (*historyi.WorkflowTaskInfo, error) {
 	return ms.workflowTaskManager.ApplyWorkflowTaskScheduledEvent(version, scheduledEventID, taskQueue, startToCloseTimeout, attempt, scheduleTimestamp, originalScheduledTimestamp, workflowTaskType)
+}
+
+func (ms *MutableStateImpl) SetWorkflowTaskStartedClock(startedClock *clockspb.VectorClock) {
+	ms.workflowTaskManager.SetWorkflowTaskStartedClock(startedClock)
+}
+
+func (ms *MutableStateImpl) SetWorkflowTaskWorkerControlTaskQueue(workerControlTaskQueue string) {
+	ms.workflowTaskManager.SetWorkflowTaskWorkerControlTaskQueue(workerControlTaskQueue)
 }
 
 func (ms *MutableStateImpl) AddWorkflowTaskStartedEvent(
@@ -9852,6 +9862,7 @@ func (ms *MutableStateImpl) syncExecutionInfo(current *persistencespb.WorkflowEx
 			HistorySizeBytes:            incoming.WorkflowTaskHistorySizeBytes,
 			BuildId:                     incoming.WorkflowTaskBuildId,
 			BuildIdRedirectCounter:      incoming.WorkflowTaskBuildIdRedirectCounter,
+			StartedClock:                incoming.WorkflowTaskStartedClock,
 		})
 		workflowTaskVersionUpdated = true
 	}
