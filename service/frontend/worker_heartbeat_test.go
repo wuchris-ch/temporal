@@ -39,7 +39,6 @@ func TestLivenessHeartbeatRequestOmitsMetadata(t *testing.T) {
 		ResourceId: "group-1",
 		WorkerHeartbeat: []*workerpb.WorkerHeartbeat{{
 			WorkerInstanceKey: "worker-1",
-			HostInfo:          &workerpb.WorkerHostInfo{WorkerGroupingKey: "group-1"},
 		}},
 	}, got)
 

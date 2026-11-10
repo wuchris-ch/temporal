@@ -7777,6 +7777,7 @@ func (wh *WorkflowHandler) RecordWorkerHeartbeat(
 		return nil, err
 	}
 
+	// When durable tracking is disabled, workers are still tracked in the in-memory registry.
 	if wh.config.EnableDurableWorkerHeartbeats(namespaceName.String()) {
 		if err := wh.recordDurableWorkerHeartbeats(ctx, namespaceID.String(), request); err != nil {
 			return nil, err
@@ -7826,7 +7827,6 @@ func newLivenessHeartbeatRequest(
 	for _, heartbeat := range heartbeats {
 		groupRequest.WorkerHeartbeat = append(groupRequest.WorkerHeartbeat, &workerpb.WorkerHeartbeat{
 			WorkerInstanceKey: heartbeat.GetWorkerInstanceKey(),
-			HostInfo:          &workerpb.WorkerHostInfo{WorkerGroupingKey: groupingKey},
 		})
 	}
 	return groupRequest
